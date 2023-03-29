@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import SmartCam from './components/SmartCam.vue'
+import SmartCam from './components/SmartCam/SmartCam.vue'
 </script>
 
 <template>

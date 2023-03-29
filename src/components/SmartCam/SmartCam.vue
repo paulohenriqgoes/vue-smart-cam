@@ -1,12 +1,21 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
+import BoxHighlighter from './BoxHighlighter.vue';
+
+type Prediction = {
+  class: string,
+  score: number
+  bbox: number[]
+}
+
 // data
-const model = ref<any>()
+let model: any
 const modelIsHealth = ref(false)
 const videoRef = ref<HTMLVideoElement>()
 const showEnableButton = ref(true) 
 const mediaRecorder = ref<MediaRecorder>()
+const predictions = ref<Prediction[]>()
 
 // methods
 function enableWebcam() {
@@ -41,7 +50,18 @@ function getUserMediaSupported() {
 }
 
 // Placeholder function for next step.
-function predictWebcam() {
+async function predictWebcam() {
+  try {
+    const result = await model?.detect(videoRef.value)
+
+    predictions.value = result.filter((prdt: Prediction) => prdt.score > 0.46)
+
+    // Call this function again to keep predicting when the browser is ready.
+    window.requestAnimationFrame(predictWebcam);
+  } catch (err) {
+    console.error('Error [model detect]:', err)
+    window.alert('Algo errado não está certo!!')
+  }
 }
 
 async function loadCocoSsdModel() {
@@ -53,7 +73,7 @@ async function loadCocoSsdModel() {
 onMounted(async () => {
   if (!getUserMediaSupported()) window.alert('your browser don\'t have support to get user media!!')
   try {
-    model.value = await loadCocoSsdModel()
+    model = await loadCocoSsdModel()
     modelIsHealth.value = true
   } catch (error) {
     console.error(error)
@@ -77,7 +97,19 @@ onBeforeUnmount(() => {
     
     <div class="camView">
       <button v-if="showEnableButton" @click="enableWebcam">Enable Webcam</button>
-      <video ref="videoRef" autoplay muted width="640" height="480"></video>
+      <div class="video-wrapper">
+        <BoxHighlighter
+          v-for="(prdt, $index) in predictions"
+          :key="`${prdt.class}-${$index}`"
+          :label="prdt.class"
+          :score="prdt.score"
+          :left="prdt.bbox[0]"
+          :top="prdt.bbox[1]"
+          :width="prdt.bbox[2]"
+          :height="prdt.bbox[3]"
+        />
+        <video id="smart-cc" ref="videoRef" autoplay muted width="640" height="480"></video>
+      </div>
     </div>
   </section>
 </template>
@@ -89,5 +121,12 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   gap: 1rem;
+}
+
+.video-wrapper {
+  cursor: pointer;
+  position: relative;
+  width: fit-content;
+  height: fit-content;
 }
 </style>
